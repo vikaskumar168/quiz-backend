@@ -1,0 +1,4 @@
+We have 2 types of Users.
+User :- Who will Participate in quizzes.
+Host :- Who will create quiz.
+
