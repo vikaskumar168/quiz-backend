@@ -1,0 +1,367 @@
+
+Real-Time Multiplayer Quiz/Game – Development Roadmap
+Tech Stack: Spring Boot (Backend) + React (Frontend)
+
+----------------------------------------
+Step 1 – Plan Core Features & Data Model
+----------------------------------------
+Goal: Know exactly what you’re building in v1 (MVP).
+
+MVP Features:
+- Host login/signup
+- Host can create quizzes (with questions & options)
+- Host can start game → generates room code
+- Players join with room code + name
+- Host starts game → questions shown one by one
+- Players answer
+- Scores calculated
+- Final leaderboard shown
+
+Core entities for MVP:
+- User (host/admin)
+- Quiz
+- Question
+- GameRoom / GameSession
+- Player (inside a room)
+- Later: Answer, Score, etc.
+
+At this step, you just design fields and relationships (no coding yet).
+
+----------------------------------------
+Step 2 – Backend Skeleton (Spring Boot Setup)
+----------------------------------------
+Goal: Have a running Spring Boot REST API with basic entities.
+
+Backend tasks:
+1. Create a Spring Boot project with:
+   - Spring Web
+   - Spring Data JPA or MongoDB
+   - Spring Security (for later)
+   - Lombok (optional)
+
+2. Configure database:
+   - MongoDB: set URI in application.yml
+   - OR PostgreSQL/MySQL: set datasource & JPA properties
+
+3. Create basic entities & repositories:
+   - User
+   - Quiz
+   - Question (embedded or separate)
+
+4. Add a simple health-check controller:
+   - GET /health → returns "OK"
+
+Stop when:
+- App runs.
+- /health returns OK.
+- You can save a Quiz via repository/test.
+
+----------------------------------------
+Step 3 – Frontend Skeleton (React Setup)
+----------------------------------------
+Goal: Running React app that can talk to the backend.
+
+Frontend tasks:
+1. Create React app (Vite or CRA).
+2. Install:
+   - react-router-dom
+   - axios (or use fetch)
+   - Tailwind CSS or another UI library
+
+3. Set up routes:
+   - /          – Home
+   - /login
+   - /signup
+   - /dashboard (for hosts)
+
+4. Test backend connection:
+   - On load, call /health.
+   - Show backend status in the UI.
+
+Stop when:
+- React app runs.
+- You see "Backend status: OK" (or similar) on screen.
+
+----------------------------------------
+Step 4 – Authentication (Hosts/Admins)
+----------------------------------------
+Goal: Secure part of the app; learn JWT & auth flow.
+
+Backend:
+1. Implement User entity with fields like:
+   - id, name, email, passwordHash, role
+
+2. Create endpoints:
+   - POST /auth/signup
+   - POST /auth/login → returns JWT
+
+3. Configure Spring Security:
+   - Public: /auth/**, /health
+   - Protected: /quizzes/**, /rooms/**, etc.
+   - Add JWT filter to validate token.
+
+Frontend:
+1. Create forms:
+   - /signup: name, email, password
+   - /login: email, password
+
+2. On login:
+   - Call /auth/login.
+   - Store token (localStorage/sessionStorage).
+
+3. Create AuthContext or similar:
+   - Store current user + token.
+   - Protect routes like /dashboard, /quizzes.
+
+Stop when:
+- You can signup/login as host.
+- Without token → protected endpoints return 401.
+- With token → protected endpoints work.
+
+----------------------------------------
+Step 5 – Quiz Management (Non-Realtime CRUD)
+----------------------------------------
+Goal: Host can create and manage quizzes from UI.
+
+Backend:
+Implement endpoints:
+- POST /quizzes      – create quiz
+- GET /quizzes       – list quizzes for logged-in host
+- GET /quizzes/{id}  – get quiz details
+- PUT /quizzes/{id}  – update quiz
+- DELETE /quizzes/{id} – delete quiz
+
+Quiz fields (example):
+- title
+- description
+- category
+- questions[]:
+  - text
+  - options[]
+  - correctIndex
+  - timeLimitSec
+  - points
+
+Frontend:
+Pages:
+1. /quizzes – list quizzes
+   - Show quiz title, edit & delete buttons.
+
+2. /quizzes/new – create quiz
+   - Form with quiz details.
+   - Add/remove questions dynamically.
+
+3. /quizzes/:id/edit – edit quiz
+   - Load quiz data and prefill form.
+
+Stop when:
+- You can login as host.
+- Create/edit/delete quizzes from UI.
+- Quizzes are stored correctly in DB.
+
+----------------------------------------
+Step 6 – Game Room Creation & Join (No Realtime Yet)
+----------------------------------------
+Goal: Model game room concept using REST only (first version).
+
+Backend:
+Create GameRoom / GameSession model:
+- id
+- roomCode (e.g., 6-digit random)
+- quizId
+- hostId
+- status: LOBBY, IN_PROGRESS, ENDED
+- players: list of { id, name, score }
+
+Endpoints:
+- POST /rooms
+  - Host creates room from a quiz.
+  - Generates roomCode.
+- GET /rooms/{roomCode}
+  - Get room details.
+- POST /rooms/{roomCode}/join
+  - Player joins with name.
+  - Returns playerId.
+- POST /rooms/{roomCode}/start
+  - Host starts game (status → IN_PROGRESS).
+
+Frontend:
+
+Host side:
+- From /quizzes, a "Start Game" button.
+- On click: POST /rooms → get roomCode.
+- Navigate to /host/room/:roomCode.
+- Show room code and players.
+- For now, poll with GET /rooms/{roomCode} every few seconds.
+
+Player side:
+- /join page:
+  - Input: roomCode + name.
+  - POST /rooms/{roomCode}/join.
+  - On success → navigate to /player/room/:roomCode.
+
+- Player room page:
+  - Show "Waiting for host to start...".
+  - Optionally show players via polling as well.
+
+Stop when:
+- Host can create room and see roomCode.
+- Players can join via code.
+- Host & players see joined players (via polling).
+
+----------------------------------------
+Step 7 – Add WebSockets (Realtime Lobby)
+----------------------------------------
+Goal: Replace polling with realtime updates in the lobby.
+
+Backend:
+Use Spring WebSocket + STOMP (or plain WebSocket).
+
+1. Configure WebSocket endpoint, e.g. /ws.
+2. Define a topic:
+   - /topic/rooms/{roomCode} for room updates.
+
+When a player joins via REST:
+- Update room state in DB/Redis.
+- Publish a message to /topic/rooms/{roomCode} (player joined, etc.).
+
+Frontend:
+- On host/player room page, open WebSocket connection.
+- Subscribe to /topic/rooms/{roomCode}.
+- On message, update the list of players / room state.
+
+Stop when:
+- A new player joining is visible instantly to all clients (no refresh or manual polling).
+
+----------------------------------------
+Step 8 – Implement Game Flow (Questions + Answers Realtime)
+----------------------------------------
+Goal: Full realtime quiz gameplay.
+
+Backend:
+Use in-memory store or Redis for live state per room:
+- currentQuestionIndex
+- questionEndTime
+- players with scores
+- answers for current question
+
+Game flow:
+
+1. Host starts game:
+   - status = IN_PROGRESS
+   - currentQuestionIndex = 0
+   - questionEndTime = now + timeLimitSec
+   - Broadcast QUESTION_STARTED event with question (no correct answer).
+
+2. Players answer:
+   - Send answer via WebSocket (or REST) to endpoint like /app/rooms/{roomCode}/answer.
+   - Server checks:
+     - Room & question active.
+     - Player is in room.
+     - Only first answer per player counts.
+   - Store answer in memory/Redis.
+
+3. Time end or host presses "Next":
+   - Server evaluates answers.
+   - Updates players’ scores.
+   - Broadcast QUESTION_RESULT event:
+     - Correct answer.
+     - Per-player score change.
+     - Updated leaderboard.
+
+4. If more questions:
+   - Move to next question (repeat steps).
+
+5. If last question finished:
+   - status = ENDED.
+   - Persist final result as GameSession in DB.
+   - Broadcast GAME_ENDED event with final leaderboard.
+
+Frontend:
+
+Host view:
+- Shows current question & timer.
+- Button "Next" (if you decide manual pacing).
+- Shows leaderboard after each question.
+
+Player view:
+- On QUESTION_STARTED:
+  - Show question & options.
+  - Allow single answer click.
+- On QUESTION_RESULT:
+  - Show correct answer.
+  - Show current score & rank (if available).
+- On GAME_ENDED:
+  - Show final rank and total score.
+
+Stop when:
+- A full game can be played across multiple browsers.
+- Questions progress correctly, answers are scored, leaderboard updates live.
+
+----------------------------------------
+Step 9 – Results & History
+----------------------------------------
+Goal: Persist finished games and show stats to hosts.
+
+Backend:
+When a game ends, save a GameSession document/record containing:
+- quizId
+- hostId
+- roomCode
+- final list of players (name, score, rank)
+- createdAt / endedAt timestamps
+
+Endpoints:
+- GET /sessions        – list sessions for current host.
+- GET /sessions/{id}   – detailed view of one game.
+
+Frontend:
+- Add a "History" section/tab on host dashboard.
+- Show list of past games.
+- Clicking a session shows player scores, maybe some stats (e.g., who won).
+
+Stop when:
+- After finishing a game, you can see it under history and review results.
+
+----------------------------------------
+Step 10 – Polish & Advanced Features
+----------------------------------------
+Goal: Improve UX, add complexity, and practice advanced concepts.
+
+Some ideas:
+- Improved UX:
+  - Better UI styling.
+  - Loading indicators & error handling.
+  - Animations and transitions.
+- More question types:
+  - True/False, numeric answers, multi-select.
+- Scoring modes:
+  - Speed bonus (based on answer time).
+  - Streak bonuses for consecutive correct answers.
+- Analytics:
+  - Hardest questions (most incorrect).
+  - Average score per quiz.
+- Infrastructure & scaling:
+  - Use Redis for room state and pub/sub.
+  - Dockerize backend & frontend.
+  - Deploy to cloud (Render, Railway, AWS, etc.).
+- Admin features:
+  - Manage users and quizzes.
+  - View system stats (number of games, users, etc.).
+
+----------------------------------------
+Summary
+----------------------------------------
+This roadmap moves you step-by-step from a simple CRUD app to a realtime multiplayer system:
+1. Plan features & data model.
+2. Backend skeleton.
+3. Frontend skeleton.
+4. Authentication (JWT).
+5. Quiz CRUD.
+6. Room creation & join (REST).
+7. Realtime lobby (WebSockets).
+8. Realtime gameplay (questions & answers).
+9. Results & history.
+10. Polish & advanced features.
+
+Follow this order and you’ll gradually build a realistic, production-style multiplayer quiz game using Spring Boot + React, while learning authentication, realtime systems, in-memory state, and clean architecture.
