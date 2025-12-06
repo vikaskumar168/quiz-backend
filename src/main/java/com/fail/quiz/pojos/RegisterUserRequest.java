@@ -1,16 +1,25 @@
 package com.fail.quiz.pojos;
 
-public class RegisterUserRequest {
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-    @NotNull
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class RegisterUserRequest {
+	
+	
+	@NotBlank	
     private String name;
-    @NotNull
+	@NotBlank
     private String email;
-    @NotNull
+	@NotBlank
     private String password;
-    @NotNull
-    private String confirmPassword;
-    private String userName;
+	private String userName;
     private String profileUrl;
 
 }

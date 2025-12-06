@@ -31,3 +31,17 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+# Compiled output and build directories
+/target/
+/bin/
+*.class
+
+# Eclipse/STS Configuration files
+.classpath
+.project
+.settings/
+
+# Generated files
+/other/
